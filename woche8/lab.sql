@@ -5,7 +5,7 @@ MINUS
 SELECT 'DROP INDEX '||constraint_name||';'
 FROM user_constraints WHERE constraint_type IN ('P', 'U');
 
---Löschen alter Indexe
+--Löschen alter Ind
 DROP INDEX ADR_CUST_ID;
 DROP INDEX ADR_CTR_CODE;
 DROP INDEX ADR_CITY;
