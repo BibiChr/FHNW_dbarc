@@ -7,10 +7,11 @@ MINUS
 SELECT 'DROP INDEX '||constraint_name||';'
 FROM user_constraints WHERE constraint_type IN ('P', 'U');
 
-select partition_name
-from USER_TAB_PARTITIONS
-where TABLE_NAME = 'PRODUCTS';
 
+select partition_name, TABLE_NAME
+from USER_TAB_PARTITIONS;
+-- where TABLE_NAME = 'PRODUCTS';
+-- todo wie kann man die löschen?
 
 --------------------------------------------------------------------------------
 -- Query 1: Kundensuche nach Vor- und Nachname (2 Punkte)
@@ -110,24 +111,9 @@ SELECT o.order_date, p.prod_name
    AND c.first_name = 'James'
    AND p.prod_category = 'Hardware';
 
--- todo: bringt nix?
--- Hier könnte die Tabelle Products in Partitionen anhand der product_category aufgeteilt werden.
--- Hierfür lässt man sich die Kategorien einfach generieren:
-SELECT DISTINCT 'PARTITION PROD_CAT_' || SUBSTR(PROD_CATEGORY, 0, 3) || ' VALUES(''' || PRODUCTS.PROD_CATEGORY || '''),'
-FROM PRODUCTS;
-
-ALTER TABLE PRODUCTS
-    MODIFY PARTITION BY LIST (PROD_CATEGORY)
-        (
-            PARTITION PROD_CAT_Pho VALUES('Photo'),
-            PARTITION PROD_CAT_Per VALUES('Peripherals and Accessories'),
-            PARTITION PROD_CAT_Har VALUES('Hardware'),
-            PARTITION PROD_CAT_Ele VALUES('Electronics'),
-            PARTITION PROD_CAT_Sof VALUES('Software/Other')
-        );
--- todo: das verbessert in dieser Anfrage gar nix...
-
-
+-- Hier sollte noch zusätzlich ein Index auf die Produktkategorie erstellt werden.
+CREATE INDEX PR_PC ON PRODUCTS(PROD_CATEGORY);
+-- todo: bringt nix
 
 --------------------------------------------------------------------------------
 -- Query 6: Schweizer Kunden, die 2023 nichts bestellt haben (5 Punkte)
@@ -186,6 +172,7 @@ ORDER BY o.order_date, p.prod_name;
 DROP INDEX ADR_ZI_CI;
 CREATE INDEX ADR_CI_ZI ON ADDRESSES (CITY, ZIP_CODE);
 -- todo partition auf adr types? oder index
+-- todo adr_type = 'D' or 'DP'
 
 
 --------------------------------------------------------------------------------
@@ -200,3 +187,7 @@ SELECT prod.prod_category
                         AND TO_DATE('31.03.2022', 'dd.mm.yyyy')
 GROUP BY prod.prod_category
 ORDER BY total_revenue DESC;
+
+-- Dies ist durch die Partitionierung von Query 6 bereits schneller.
+-- todo index auf prod_category
+
