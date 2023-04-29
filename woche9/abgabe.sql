@@ -8,14 +8,15 @@ SELECT 'DROP INDEX '||constraint_name||';'
 FROM user_constraints WHERE constraint_type IN ('P', 'U');
 
 
-select partition_name, TABLE_NAME
-from USER_TAB_PARTITIONS;
--- where TABLE_NAME = 'PRODUCTS';
--- todo wie kann man die löschen?
+-- select partition_name, TABLE_NAME
+-- from USER_TAB_PARTITIONS;
+-- -- where TABLE_NAME = 'PRODUCTS';
+-- -- todo wie kann man die löschen?
 
 --------------------------------------------------------------------------------
 -- Query 1: Kundensuche nach Vor- und Nachname (2 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT a.cust_id, c.title, c.first_name, c.last_name, c.date_of_birth
      , a.zip_code, a.city, a.ctr_code, atp.label
   FROM customers c
@@ -25,6 +26,9 @@ SELECT a.cust_id, c.title, c.first_name, c.last_name, c.date_of_birth
  WHERE first_name = 'Susanne'
    AND last_name = 'Koenig'
 ORDER BY a.cust_id, atp.label;
+
+-- Dauerte zu Beginn durchschnittlich zwischen 130ms und 190ms.
+-- Dauert am Ende aller Verbesserungen zwischen  und
 
 -- Hier macht es Sinn einen Index auf die Tabelle CUSTOMERS mit Vor- und Nachnamen zu machen.
 -- Da es wahrscheinlich ist, dass es häufiger Suchen gibt mit dem Nachnamen, sollte hier die
@@ -36,6 +40,7 @@ CREATE INDEX CUST_LN_FN ON CUSTOMERS (LAST_NAME, FIRST_NAME);
 --------------------------------------------------------------------------------
 -- Query 2: Kundensuche nach Nachname (2 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT a.cust_id, c.title, c.first_name, c.last_name
      , a.street, a.street_no, a.zip_code, a.city, a.ctr_code, atp.label
   FROM customers c
@@ -45,17 +50,18 @@ SELECT a.cust_id, c.title, c.first_name, c.last_name
  WHERE last_name = 'Moneypenny'
 ORDER BY a.cust_id, atp.label;
 
--- Hier wird bereits der Index aus Query 1 genutzt, welchen wir direkt so gemacht haben,
--- dass der Nachname als erstes kommt.
+-- Dauerte zu Beginn durchschnittlich zwischen 130ms und 180ms
+-- Dauert am Ende aller Verbesserungen zwischen  und
+
+-- Hier wird bereits der Index aus Query 1 genutzt, welchen direkt so gemacht ist, dass der
+-- Nachname als erstes kommt.
 
 
 
 --------------------------------------------------------------------------------
 -- Query 3: Englischsprachige Members, die am 2.3.20 bestellt haben (3 Punkte)
 --------------------------------------------------------------------------------
--- todo: partition auf order
--- todo: partition auf language_code?
--- todo: index auf language code?
+-- todo: index auf language_code?
 -- todo: index auf member-flag
 SELECT DISTINCT c.id, c.first_name, c.last_name
   FROM orders o
@@ -64,15 +70,35 @@ SELECT DISTINCT c.id, c.first_name, c.last_name
    AND c.member_flag = 'Y'
    AND c.language_code = 'en';
 
+-- Dauerte zu Beginn durchschnittlich zwischen 800ms und 950ms
+-- Dauert am Ende aller Verbesserungen zwischen  und
+
 -- Hier macht es Sinn die Query anzupassen. Akuell wird auf jede Row die TO_CHAR aufgerufen.
 -- Das ORDER_DATE ist aber ein date, also wäre es besser den String in ein DATE
 -- umzuwandeln.
+EXPLAIN PLAN FOR
 SELECT DISTINCT c.id, c.first_name, c.last_name
   FROM orders o
   JOIN customers c ON (c.id = o.cust_id)
  WHERE o.order_date = TO_DATE('02.03.2020', 'dd.mm.yyyy')
   AND c.member_flag = 'Y'
   AND c.language_code = 'en';
+
+
+-- Ausserdem ist eine Partitionierung auf das Datum der Bestellung sinnvoll.
+-- Mittels dem Befehl
+SELECT MIN( EXTRACT(YEAR FROM order_date)) as year FROM orders;
+-- Wurde das erste Jahr, in welher eine Bestellung durchgeführt wurde, herausgesucht.
+
+-- Die Partitionierung erfolgt auf den Tag des Datums.
+ALTER TABLE ORDERS
+    MODIFY PARTITION BY RANGE (order_date)
+        INTERVAL (NUMTODSINTERVAL(1, 'DAY'))
+        (PARTITION orders_init VALUES LESS THAN (DATE'2020-01-01'));
+
+-- Und wird auch auf die Order_Items übertragen.
+ALTER TABLE ORDER_ITEMS
+    MODIFY PARTITION BY REFERENCE(ORDI_ORD_FK);
 
 
 
@@ -85,7 +111,12 @@ SELECT c.first_name, c.last_name, c.date_of_birth
  WHERE a.zip_code||' '||a.city = '5210 Windisch'
    AND a.adr_type = 'P';
 
+-- Dauerte zu Beginn durchschnittlich zwischen 120ms und 150ms
+-- Dauert am Ende aller Verbesserungen zwischen  und
+
 -- Hier macht es Sinn die Query anzupassen, so dass einzeln nach zip_code und city gesucht wird.
+-- Da die Verkettung hohe Kosten verursacht.
+EXPLAIN PLAN FOR
 SELECT c.first_name, c.last_name, c.date_of_birth
   FROM customers c
   JOIN addresses a ON (a.cust_id = c.id)
@@ -96,12 +127,13 @@ SELECT c.first_name, c.last_name, c.date_of_birth
 -- Dann sollte ein Index für den zip_code und die city erstellt werden, da diese wahrscheinlich
 -- häufiger gesucht werden könnten.
 CREATE INDEX ADR_ZI_CI ON ADDRESSES (ZIP_CODE, CITY);
--- todo: was noch machen?
+
 
 
 --------------------------------------------------------------------------------
 -- Query 5: Was hat James Bond fŸr Hardware gekauft? (4 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT o.order_date, p.prod_name
   FROM orders o
   JOIN order_items i ON (i.order_id = o.id)
@@ -111,13 +143,20 @@ SELECT o.order_date, p.prod_name
    AND c.first_name = 'James'
    AND p.prod_category = 'Hardware';
 
--- Hier sollte noch zusätzlich ein Index auf die Produktkategorie erstellt werden.
-CREATE INDEX PR_PC ON PRODUCTS(PROD_CATEGORY);
--- todo: bringt nix
+-- Dauerte zu Beginn durchschnittlich zwischen 980ms und 1s 50ms
+-- Dauert am Ende aller Verbesserungen zwischen  und
+
+-- Es Könnte ein Index auf die Produktkategorie erstellt werden, jedoch verbessert die die
+-- Performance nicht, weshalb es keinen Sinn hier macht.
+CREATE INDEX PR_CT ON PRODUCTS(PROD_CATEGORY);
+DROP INDEX PR_CT;
+
+
 
 --------------------------------------------------------------------------------
 -- Query 6: Schweizer Kunden, die 2023 nichts bestellt haben (5 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT *
   FROM customers
  WHERE id IN (SELECT cust_id
@@ -131,27 +170,17 @@ SELECT *
                    WHERE order_date BETWEEN TO_DATE('01.01.2023', 'dd.mm.yyyy')
                                         AND TO_DATE('31.12.2023', 'dd.mm.yyyy'));
 
--- Partitionierung auf das Datum der Bestellung.
--- Mittels dem Befehl SELECT DISTINCT EXTRACT(YEAR FROM order_date) as year FROM orders;
--- Wurde das erste Jahr einer Bestellung herausgesucht.
+-- Dauerte zu Beginn durchschnittlich zwischen 180ms und 230ms
+-- Dauert am Ende aller Verbesserungen zwischen  und
 
--- Die Partitionierung erfolgt auf den Tag des Datums.
--- Die Query sucht zwar innerhalb eines gesammten Jahres, so dass auch nach Jahren
--- partitioniert werden könnte. Aber dies hat beim Testen schlechtere Resultate gegeben.
-ALTER TABLE ORDERS
-    MODIFY PARTITION BY RANGE (order_date)
-        INTERVAL (NUMTODSINTERVAL(1, 'DAY'))
-        (PARTITION orders_init VALUES LESS THAN (DATE'2020-01-01'));
-
-
---todo hat aber gar keine auswirkung?
-ALTER TABLE ORDER_ITEMS
-    MODIFY PARTITION BY REFERENCE(ORDI_ORD_FK);
 -- todo partition auf ctr.name? oder index?
+
+
 
 --------------------------------------------------------------------------------
 -- Query 7: Alle Bestellungen von Harry Potter seit Anfang Jahr (5 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT c.first_name, c.last_name, o.order_date, i.delivery_date, p.prod_name, i.quantity
   FROM orders      o
   JOIN order_items i ON (i.order_id = o.id)
@@ -166,9 +195,13 @@ SELECT c.first_name, c.last_name, o.order_date, i.delivery_date, p.prod_name, i.
    AND a.city = 'Hogwarts'
 ORDER BY o.order_date, p.prod_name;
 
+-- Dauerte zu Beginn durchschnittlich zwischen 210ms und 310ms
+-- Dauert am Ende aller Verbesserungen zwischen  und
+
 -- Dies ist zum einen bereits durch die Partitionierung von Query 6 schneller geworden.
 -- Jedoch wäre es hier sinnvoll einen Index auf die CITY zu machen. Dies wurde bereits in Query 4
--- gemacht. Jedoch so herum, dass erst der ZIP_CODE kommt. Dies muss nun angepasst werden.
+-- gemacht. Jedoch so herum, dass erst der ZIP_CODE kommt. Deshalb muss der Index umgeschrieben
+-- werden. Sonst wird dieser Index nicht genutzt.
 DROP INDEX ADR_ZI_CI;
 CREATE INDEX ADR_CI_ZI ON ADDRESSES (CITY, ZIP_CODE);
 -- todo partition auf adr types? oder index
@@ -178,6 +211,7 @@ CREATE INDEX ADR_CI_ZI ON ADDRESSES (CITY, ZIP_CODE);
 --------------------------------------------------------------------------------
 -- Query 8: Gesamtumsatz pro Produktkategorie im ersten Quartal 2022 (5 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT prod.prod_category
      , SUM(i.quantity * i.price_per_unit) total_revenue
   FROM orders      o
@@ -188,6 +222,11 @@ SELECT prod.prod_category
 GROUP BY prod.prod_category
 ORDER BY total_revenue DESC;
 
--- Dies ist durch die Partitionierung von Query 6 bereits schneller.
--- todo index auf prod_category
+-- Dauerte zu Beginn durchschnittlich zwischen 2s und 3s
+-- Dauert am Ende aller Verbesserungen zwischen  und
 
+
+-- Es Könnte ein Index auf die Produktkategorie erstellt werden, jedoch verbessert dies die
+-- Performance nicht wirklich. Nur um 1 Punkt, weshalb es keinen Sinn hier macht.
+CREATE INDEX PR_CT ON PRODUCTS(PROD_CATEGORY);
+DROP INDEX PR_CT;

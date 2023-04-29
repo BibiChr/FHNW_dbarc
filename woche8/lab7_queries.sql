@@ -1,6 +1,7 @@
 --------------------------------------------------------------------------------
 -- Query 1: Kundensuche nach Vor- und Nachname (2 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT a.cust_id, c.title, c.first_name, c.last_name, c.date_of_birth
      , a.zip_code, a.city, a.ctr_code, atp.label
   FROM customers c
@@ -14,6 +15,7 @@ ORDER BY a.cust_id, atp.label;
 --------------------------------------------------------------------------------
 -- Query 2: Kundensuche nach Nachname (2 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT a.cust_id, c.title, c.first_name, c.last_name
      , a.street, a.street_no, a.zip_code, a.city, a.ctr_code, atp.label
   FROM customers c
@@ -26,6 +28,7 @@ ORDER BY a.cust_id, atp.label;
 --------------------------------------------------------------------------------
 -- Query 3: Englischsprachige Members, die am 2.3.20 bestellt haben (3 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT DISTINCT c.id, c.first_name, c.last_name
   FROM orders o
   JOIN customers c ON (c.id = o.cust_id)
@@ -36,6 +39,7 @@ SELECT DISTINCT c.id, c.first_name, c.last_name
 --------------------------------------------------------------------------------
 -- Query 4: Welche Kunden wohnen in Windisch? (4 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT c.first_name, c.last_name, c.date_of_birth
   FROM customers c
   JOIN addresses a ON (a.cust_id = c.id)
@@ -45,6 +49,7 @@ SELECT c.first_name, c.last_name, c.date_of_birth
 --------------------------------------------------------------------------------
 -- Query 5: Was hat James Bond für Hardware gekauft? (4 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT o.order_date, p.prod_name
   FROM orders o
   JOIN order_items i ON (i.order_id = o.id)
@@ -57,6 +62,7 @@ SELECT o.order_date, p.prod_name
 --------------------------------------------------------------------------------
 -- Query 6: Schweizer Kunden, die 2023 nichts bestellt haben (5 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT *
   FROM customers
  WHERE id IN (SELECT cust_id 
@@ -73,6 +79,7 @@ SELECT *
 --------------------------------------------------------------------------------
 -- Query 7: Alle Bestellungen von Harry Potter seit Anfang Jahr (5 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT c.first_name
      , c.last_name
      , o.order_date
@@ -95,6 +102,7 @@ ORDER BY o.order_date, p.prod_name;
 --------------------------------------------------------------------------------
 -- Query 8: Gesamtumsatz pro Produktkategorie im ersten Quartal 2022 (5 Punkte)
 --------------------------------------------------------------------------------
+EXPLAIN PLAN FOR
 SELECT prod.prod_category
      , SUM(i.quantity * i.price_per_unit) total_revenue
   FROM orders      o
