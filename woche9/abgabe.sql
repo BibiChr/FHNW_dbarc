@@ -100,6 +100,7 @@ ALTER TABLE ORDERS
 ALTER TABLE ORDER_ITEMS
     MODIFY PARTITION BY REFERENCE(ORDI_ORD_FK);
 
+-- todo ? neue statistik laden?
 
 
 --------------------------------------------------------------------------------
@@ -175,6 +176,22 @@ SELECT *
 
 -- todo partition auf ctr.name? oder index?
 
+-- Bei der Abfrage nach dem Label wäre es besser nach atp.ADR_TYPE zu suchen, als nach label
+-- weil dies schon der Primary Key ist. Das gleiche gilt für den Country.Name und Country.Code
+
+EXPLAIN PLAN FOR
+SELECT *
+  FROM customers
+ WHERE id IN (SELECT cust_id
+                FROM addresses a
+                JOIN countries ctr ON (ctr.code = a.ctr_code)
+                JOIN adr_types atp ON (atp.adr_type = a.adr_type)
+               WHERE ctr.name = 'Switzerland'
+                 AND atp.ADR_TYPE = 'D')
+   AND id NOT IN (SELECT cust_id
+                    FROM orders
+                   WHERE order_date BETWEEN TO_DATE('01.01.2023', 'dd.mm.yyyy')
+                                        AND TO_DATE('31.12.2023', 'dd.mm.yyyy'));
 
 
 --------------------------------------------------------------------------------
@@ -204,8 +221,10 @@ ORDER BY o.order_date, p.prod_name;
 -- werden. Sonst wird dieser Index nicht genutzt.
 DROP INDEX ADR_ZI_CI;
 CREATE INDEX ADR_CI_ZI ON ADDRESSES (CITY, ZIP_CODE);
+
+--todo index auf order-date
 -- todo partition auf adr types? oder index
--- todo adr_type = 'D' or 'DP'
+-- todo adr_type = 'D' or 'DP' partitionieren und dann die adressen partitionieren
 
 
 --------------------------------------------------------------------------------
