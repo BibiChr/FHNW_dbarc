@@ -8,8 +8,8 @@ SELECT 'DROP INDEX '||constraint_name||';'
 FROM user_constraints WHERE constraint_type IN ('P', 'U');
 
 
--- select partition_name, TABLE_NAME
--- from USER_TAB_PARTITIONS;
+select partition_name, TABLE_NAME
+from USER_TAB_PARTITIONS;
 -- -- where TABLE_NAME = 'PRODUCTS';
 -- -- todo wie kann man die löschen?
 
@@ -34,6 +34,8 @@ ORDER BY a.cust_id, atp.label;
 -- Da es wahrscheinlich ist, dass es häufiger Suchen gibt mit dem Nachnamen, sollte hier die
 -- Reihenfolge sein, dass der Nachname zu erst genannt wird.
 CREATE INDEX CUST_LN_FN ON CUSTOMERS (LAST_NAME, FIRST_NAME);
+-- Foreing Key index für cust_id
+CREATE INDEX ADR_CUST_ID ON ADDRESSES (CUST_ID);
 
 
 
@@ -130,7 +132,6 @@ SELECT c.first_name, c.last_name, c.date_of_birth
 CREATE INDEX ADR_ZI_CI ON ADDRESSES (ZIP_CODE, CITY);
 
 
-
 --------------------------------------------------------------------------------
 -- Query 5: Was hat James Bond fŸr Hardware gekauft? (4 Punkte)
 --------------------------------------------------------------------------------
@@ -149,8 +150,6 @@ SELECT o.order_date, p.prod_name
 
 -- Es Könnte ein Index auf die Produktkategorie erstellt werden, jedoch verbessert die die
 -- Performance nicht, weshalb es keinen Sinn hier macht.
-CREATE INDEX PR_CT ON PRODUCTS(PROD_CATEGORY);
-DROP INDEX PR_CT;
 
 
 
@@ -249,3 +248,14 @@ ORDER BY total_revenue DESC;
 -- Performance nicht wirklich. Nur um 1 Punkt, weshalb es keinen Sinn hier macht.
 CREATE INDEX PR_CT ON PRODUCTS(PROD_CATEGORY);
 DROP INDEX PR_CT;
+
+
+
+
+BEGIN
+   dbms_stats.gather_schema_stats
+      (ownname => USER
+      ,method_opt => 'FOR ALL COLUMNS SIZE SKEWONLY'
+      ,no_invalidate => FALSE);
+END;
+/
